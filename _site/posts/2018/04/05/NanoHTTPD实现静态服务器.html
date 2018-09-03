@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta http-equiv="content-type" content="text/html; charset=utf-8" />
+		<meta http-equiv="content-language" content="zh-CN" />
+		<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+		<meta name="keywords" content="Parayrion,java"/>
+		<meta name="author" content="Parayrion" />
+		<meta name="description" content="NanoHttpd实现静态服务器"/>
+		<link rel="icon" href="/static/img/favicon.ico" type="image/x-icon" />
+		<link rel="shortcut icon" href="/static/img/favicon.ico" type="image/x-icon"/>
+		<link rel="stylesheet" href="/static/css/blog.css">
+		<link rel="stylesheet" href="/static/css/blog-post.css">
+		<script>window.blog={contextPath:""}</script>
+		<script type="text/javascript" src="/static/js/blog.js"></script>
+		<title>NanoHttpd实现静态服务器-Parayrion Blog</title>
+	</head>
+<body>
+<header class="header select-none">
+    <a class="logo" title="Parayrion Blog" href="/">
+        <img src="/static/img/logo.jpg">
+    </a>
+    <a class="title" href="/">Parayrion Blog</a>
+    <nav class="menu">
+        <a href="/">Blog</a>
+        <a href="/pages/categories.html">Categories</a>
+        <a href="/pages/search.html">Search</a>
+        <!--<a href="/pages/links.html">Links</a>-->
+        <a href="/pages/chat.html">Chat</a>
+        <a href="/pages/about.html">About</a>
+    </nav>
+    <span class="icon"></span>
+</header>
+	<div class="main animation-fadeUp post">
+		
+		<h1 class="title">NanoHttpd实现静态服务器</h1>
+		
+		<div class="content"><p>最近在写Site Generator的时候需要内嵌一个静态服务器，自己再写个Socket Server又太麻烦了</p>
+
+<p>找到了两个方案</p>
+
+<ol>
+  <li>
+    <p>Jetty，一个jar实现了Servlet容器的所有功能</p>
+  </li>
+  <li>
+    <p><a href="https://github.com/NanoHttpd/nanohttpd">NanoHTTPD</a>，一个java文件实现了一个简单的http服务的请求和响应，需要自己处理逻辑</p>
+  </li>
+</ol>
+
+<p>Jetty大小适中，而且也够成熟,相比之下NanoHTTPD是非常轻量的，考虑到速度和体积还是使用了NanoHTTPD</p>
+
+<p>注意github上的NanoHTTPD文件比较多，其实只需要一个NanoHTTPD.java（放到项目里面时不要修改包结构，可能会无法运行）即可</p>
+
+<h2 id="代码">代码</h2>
+
+<p>自定义mimetypes，其实使用默认的就可以了，这里不做改变</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>META-INF/default-mimetypes.properties
+se META-INF/mimetypes.properties for user defined mimetypes
+</code></pre></div></div>
+
+<p>启动服务器</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">MyHttpServer</span> <span class="n">myHttpServer</span> <span class="o">=</span> <span class="k">new</span> <span class="n">MyHttpServer</span><span class="o">(</span><span class="n">port</span><span class="o">,</span> <span class="n">webRoot</span><span class="o">);</span>
+<span class="n">myHttpServer</span><span class="o">.</span><span class="na">start</span><span class="o">(</span><span class="mi">4000</span><span class="o">,</span> <span class="kc">false</span><span class="o">);</span>
+<span class="c1">//System.out.println("按下回车键/关闭窗口停止服务");</span>
+<span class="c1">//System.in.read();</span>
+
+<span class="c1">//if (myHttpServer != null) {</span>
+<span class="c1">//    myHttpServer.stop();</span>
+<span class="c1">//}</span>
+</code></pre></div></div>
+
+<p>主要逻辑，继承NanoHTTPD，重写serve方法就可以了</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">public</span> <span class="kd">class</span> <span class="nc">MyHttpServer</span> <span class="kd">extends</span> <span class="n">NanoHTTPD</span> <span class="o">{</span>
+
+    <span class="kd">private</span> <span class="n">File</span> <span class="n">webRoot</span><span class="o">;</span>
+
+    <span class="kd">public</span> <span class="nf">MyHttpServer</span><span class="o">(</span><span class="kt">int</span> <span class="n">port</span><span class="o">,</span> <span class="n">File</span> <span class="n">webRoot</span><span class="o">)</span> <span class="kd">throws</span> <span class="n">Exception</span> <span class="o">{</span>
+        <span class="kd">super</span><span class="o">(</span><span class="n">port</span><span class="o">);</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">webRoot</span> <span class="o">==</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+            <span class="k">throw</span> <span class="k">new</span> <span class="nf">Exception</span><span class="o">(</span><span class="s">"网站路径：null"</span><span class="o">);</span>
+        <span class="o">}</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">webRoot</span><span class="o">.</span><span class="na">exists</span><span class="o">()</span> <span class="o">&amp;&amp;</span> <span class="n">webRoot</span><span class="o">.</span><span class="na">isDirectory</span><span class="o">())</span> <span class="o">{</span>
+            <span class="k">this</span><span class="o">.</span><span class="na">webRoot</span> <span class="o">=</span> <span class="n">webRoot</span><span class="o">;</span>
+        <span class="o">}</span> <span class="k">else</span> <span class="o">{</span>
+            <span class="k">throw</span> <span class="k">new</span> <span class="nf">Exception</span><span class="o">(</span><span class="s">"网站路径不存在："</span> <span class="o">+</span> <span class="n">webRoot</span><span class="o">.</span><span class="na">getAbsolutePath</span><span class="o">());</span>
+        <span class="o">}</span>
+    <span class="o">}</span>
+
+    <span class="nd">@Override</span>
+    <span class="kd">public</span> <span class="n">Response</span> <span class="nf">serve</span><span class="o">(</span><span class="n">String</span> <span class="n">uri</span><span class="o">,</span> <span class="n">Method</span> <span class="n">method</span><span class="o">,</span> <span class="n">java</span><span class="o">.</span><span class="na">util</span><span class="o">.</span><span class="na">Map</span><span class="o">&lt;</span><span class="n">String</span><span class="o">,</span> <span class="n">String</span><span class="o">&gt;</span> <span class="n">headers</span><span class="o">,</span> <span class="n">java</span><span class="o">.</span><span class="na">util</span><span class="o">.</span><span class="na">Map</span><span class="o">&lt;</span><span class="n">String</span><span class="o">,</span> <span class="n">String</span><span class="o">&gt;</span> <span class="n">parms</span><span class="o">,</span> <span class="n">java</span><span class="o">.</span><span class="na">util</span><span class="o">.</span><span class="na">Map</span><span class="o">&lt;</span><span class="n">String</span><span class="o">,</span> <span class="n">String</span><span class="o">&gt;</span> <span class="n">files</span><span class="o">)</span> <span class="o">{</span>
+
+        <span class="n">File</span> <span class="n">file</span> <span class="o">=</span> <span class="k">new</span> <span class="n">File</span><span class="o">(</span><span class="n">webRoot</span><span class="o">,</span> <span class="n">uri</span><span class="o">);</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">file</span><span class="o">.</span><span class="na">exists</span><span class="o">())</span> <span class="o">{</span>
+            <span class="k">if</span> <span class="o">(</span><span class="n">file</span><span class="o">.</span><span class="na">isFile</span><span class="o">())</span> <span class="o">{</span>
+                <span class="k">return</span> <span class="nf">render200</span><span class="o">(</span><span class="n">uri</span><span class="o">,</span> <span class="n">file</span><span class="o">);</span>
+            <span class="o">}</span> <span class="k">else</span> <span class="o">{</span>
+                <span class="k">if</span> <span class="o">(</span><span class="n">uri</span><span class="o">.</span><span class="na">endsWith</span><span class="o">(</span><span class="s">"/"</span><span class="o">))</span> <span class="o">{</span>
+                    <span class="n">File</span> <span class="n">indexFile</span> <span class="o">=</span> <span class="k">new</span> <span class="n">File</span><span class="o">(</span><span class="n">file</span><span class="o">,</span> <span class="s">"index.html"</span><span class="o">);</span>
+                    <span class="k">if</span> <span class="o">(</span><span class="n">indexFile</span><span class="o">.</span><span class="na">exists</span><span class="o">())</span> <span class="o">{</span>
+                        <span class="k">return</span> <span class="nf">render200</span><span class="o">(</span><span class="n">uri</span> <span class="o">+</span> <span class="s">"index.html"</span><span class="o">,</span> <span class="n">indexFile</span><span class="o">);</span>
+                    <span class="o">}</span> <span class="k">else</span> <span class="o">{</span>
+                        <span class="k">return</span> <span class="nf">render404</span><span class="o">();</span>
+                    <span class="o">}</span>
+                <span class="o">}</span> <span class="k">else</span> <span class="o">{</span>
+                    <span class="k">return</span> <span class="nf">render301</span><span class="o">(</span><span class="n">uri</span> <span class="o">+</span> <span class="s">"/"</span><span class="o">);</span>
+                <span class="o">}</span>
+            <span class="o">}</span>
+        <span class="o">}</span> <span class="k">else</span> <span class="o">{</span>
+            <span class="k">return</span> <span class="nf">render404</span><span class="o">();</span>
+        <span class="o">}</span>
+    <span class="o">}</span>
+
+    <span class="kd">private</span> <span class="n">Response</span> <span class="nf">render404</span><span class="o">()</span> <span class="o">{</span>
+        <span class="n">File</span> <span class="n">file</span> <span class="o">=</span> <span class="k">new</span> <span class="n">File</span><span class="o">(</span><span class="n">webRoot</span><span class="o">,</span> <span class="s">"404.html"</span><span class="o">);</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">file</span><span class="o">.</span><span class="na">exists</span><span class="o">())</span> <span class="o">{</span>
+            <span class="k">try</span> <span class="o">{</span>
+                <span class="k">return</span> <span class="n">NanoHTTPD</span><span class="o">.</span><span class="na">newFixedLengthResponse</span><span class="o">(</span><span class="n">NanoHTTPD</span><span class="o">.</span><span class="na">Response</span><span class="o">.</span><span class="na">Status</span><span class="o">.</span><span class="na">NOT_FOUND</span><span class="o">,</span> <span class="n">NanoHTTPD</span><span class="o">.</span><span class="na">MIME_HTML</span><span class="o">,</span> <span class="k">new</span> <span class="n">FileInputStream</span><span class="o">(</span><span class="n">file</span><span class="o">),</span> <span class="n">file</span><span class="o">.</span><span class="na">length</span><span class="o">());</span>
+            <span class="o">}</span> <span class="k">catch</span> <span class="o">(</span><span class="n">FileNotFoundException</span> <span class="n">e</span><span class="o">)</span> <span class="o">{</span>
+                <span class="k">return</span> <span class="nf">render500</span><span class="o">(</span><span class="n">e</span><span class="o">.</span><span class="na">getMessage</span><span class="o">());</span>
+            <span class="o">}</span>
+        <span class="o">}</span> <span class="k">else</span> <span class="o">{</span>
+            <span class="k">return</span> <span class="n">NanoHTTPD</span><span class="o">.</span><span class="na">newFixedLengthResponse</span><span class="o">(</span><span class="n">NanoHTTPD</span><span class="o">.</span><span class="na">Response</span><span class="o">.</span><span class="na">Status</span><span class="o">.</span><span class="na">NOT_FOUND</span><span class="o">,</span> <span class="n">NanoHTTPD</span><span class="o">.</span><span class="na">MIME_HTML</span><span class="o">,</span> <span class="kc">null</span><span class="o">);</span>
+        <span class="o">}</span>
+    <span class="o">}</span>
+
+    <span class="kd">private</span> <span class="n">Response</span> <span class="nf">render500</span><span class="o">(</span><span class="n">String</span> <span class="n">text</span><span class="o">)</span> <span class="o">{</span>
+        <span class="k">return</span> <span class="n">NanoHTTPD</span><span class="o">.</span><span class="na">newFixedLengthResponse</span><span class="o">(</span><span class="n">NanoHTTPD</span><span class="o">.</span><span class="na">Response</span><span class="o">.</span><span class="na">Status</span><span class="o">.</span><span class="na">INTERNAL_ERROR</span><span class="o">,</span> <span class="n">NanoHTTPD</span><span class="o">.</span><span class="na">MIME_PLAINTEXT</span><span class="o">,</span> <span class="n">text</span><span class="o">);</span>
+    <span class="o">}</span>
+
+    <span class="kd">private</span> <span class="n">Response</span> <span class="nf">render200</span><span class="o">(</span><span class="n">String</span> <span class="n">uri</span><span class="o">,</span> <span class="n">File</span> <span class="n">file</span><span class="o">)</span> <span class="o">{</span>
+        <span class="k">try</span> <span class="o">{</span>
+            <span class="k">return</span> <span class="n">NanoHTTPD</span><span class="o">.</span><span class="na">newFixedLengthResponse</span><span class="o">(</span><span class="n">NanoHTTPD</span><span class="o">.</span><span class="na">Response</span><span class="o">.</span><span class="na">Status</span><span class="o">.</span><span class="na">OK</span><span class="o">,</span> <span class="n">NanoHTTPD</span><span class="o">.</span><span class="na">getMimeTypeForFile</span><span class="o">(</span><span class="n">uri</span><span class="o">),</span> <span class="k">new</span> <span class="n">FileInputStream</span><span class="o">(</span><span class="n">file</span><span class="o">),</span> <span class="n">file</span><span class="o">.</span><span class="na">length</span><span class="o">());</span>
+        <span class="o">}</span> <span class="k">catch</span> <span class="o">(</span><span class="n">FileNotFoundException</span> <span class="n">e</span><span class="o">)</span> <span class="o">{</span>
+            <span class="k">return</span> <span class="nf">render500</span><span class="o">(</span><span class="n">e</span><span class="o">.</span><span class="na">getMessage</span><span class="o">());</span>
+        <span class="o">}</span>
+    <span class="o">}</span>
+
+    <span class="kd">private</span> <span class="n">Response</span> <span class="nf">render301</span><span class="o">(</span><span class="n">String</span> <span class="n">next</span><span class="o">)</span> <span class="o">{</span>
+        <span class="n">Response</span> <span class="n">res</span> <span class="o">=</span> <span class="n">newFixedLengthResponse</span><span class="o">(</span><span class="n">Response</span><span class="o">.</span><span class="na">Status</span><span class="o">.</span><span class="na">REDIRECT</span><span class="o">,</span> <span class="n">NanoHTTPD</span><span class="o">.</span><span class="na">MIME_HTML</span><span class="o">,</span> <span class="kc">null</span><span class="o">);</span>
+        <span class="n">res</span><span class="o">.</span><span class="na">addHeader</span><span class="o">(</span><span class="s">"Location"</span><span class="o">,</span> <span class="n">next</span><span class="o">);</span>
+        <span class="k">return</span> <span class="n">res</span><span class="o">;</span>
+    <span class="o">}</span>
+
+<span class="o">}</span>
+</code></pre></div></div>
+</div>
+	</div>
+<footer class="footer">
+    <!--<span>Copyright © 2016 皖ICP备16016174号</span>-->
+    <!--<a href="/sitemap.xml">网站地图</a>-->
+    <!--<span>Powered by</span>-->
+    <!--<a href="https://github.com/Parayrion">汤宝宝-blog</a>-->
+    <!--<div class="up"></div>-->
+</footer>
+<script>
+//    //mta.qq.com 访问统计
+//    var _mtac = {};
+//    (function() {
+//        var mta = document.createElement("script");
+//        mta.src = "http://pingjs.qq.com/h5/stats.js?v2.0.2";
+//        mta.setAttribute("name", "MTAH5");
+//        mta.setAttribute("sid", "500581966");
+//        var s = document.getElementsByTagName("script")[0];
+//        s.parentNode.insertBefore(mta, s);
+//    })();
+//    //360的自动推送
+//    (function(){
+//        var src = (document.location.protocol == "http:") ? "http://js.passport.qihucdn.com/11.0.1.js?0b7f3f19682121293c3e4b62c9740281":"https://jspassport.ssl.qhimg.com/11.0.1.js?0b7f3f19682121293c3e4b62c9740281";
+//        document.write('<script src="' + src + '" id="sozz"><\/script>');
+//    })();
+//    //百度的自动推送
+//    (function(){
+//        var bp = document.createElement('script');
+//        var curProtocol = window.location.protocol.split(':')[0];
+//        if (curProtocol === 'https') {
+//            bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+//        }
+//        else {
+//            bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+//        }
+//        var s = document.getElementsByTagName("script")[0];
+//        s.parentNode.insertBefore(bp, s);
+//    })();
+</script>
+</body>
+</html>
